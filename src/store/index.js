@@ -1,6 +1,6 @@
 import Vue from 'vue'
 import Vuex from 'vuex'
-import * as fb from '../firebase'
+import fb from '../firebase'
 import router from '../router/index'
 
 Vue.use(Vuex)
@@ -79,6 +79,7 @@ const store = new Vuex.Store({
       router.push('/login')
     },
     async createPost({ state, commit }, post) {
+        console.log('create post', commit)
       // create post in firebase
       await fb.postsCollection.add({
         createdOn: new Date(),
@@ -90,6 +91,7 @@ const store = new Vuex.Store({
       })
     },
     async likePost ({ commit }, post) {
+        console.log('like post', commit)
       const userId = fb.auth.currentUser.uid
       const docId = `${userId}_${post.id}`
 
@@ -115,6 +117,7 @@ const store = new Vuex.Store({
         name: user.name,
         title: user.title
       })
+      console('update profile', userRef)
 
       dispatch('fetchUserProfile', { uid: userId })
 

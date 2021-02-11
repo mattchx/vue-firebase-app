@@ -13,3 +13,11 @@ export default new Vuex.Store({
   modules: {
   }
 })
+
+async logout({ commit }) {
+    await fb.auth.signOut()
+  
+    // clear userProfile and redirect to /login
+    commit('setUserProfile', {})
+    router.push('/login')
+  }

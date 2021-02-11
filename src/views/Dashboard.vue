@@ -1,100 +1,143 @@
 <template>
-  <div id="login">
-    <PasswordReset v-if="showPasswordReset" @close="togglePasswordReset()"></PasswordReset>
+  <div id="dashboard">
+    <transition name="fade">
+      <CommentModal v-if="showCommentModal" :post="selectedPost" @close="toggleCommentModal()"></CommentModal>
+    </transition>
     <section>
       <div class="col1">
-        <h1>Vuegram</h1>
-        <p>Welcome to the <a href="https://savvyapps.com/" target="_blank">Savvy Apps</a> sample social media web app powered by Vue.js and Firebase.
-          Build this project by checking out The Definitive Guide to Getting Started with Vue.js</p>
+        <div class="profile">
+          <h5>{{ userProfile.name }}</h5>
+          <p>{{ userProfile.title }}</p>
+          <div class="create-post">
+            <p>create a post</p>
+            <form @submit.prevent>
+              <textarea v-model.trim="post.content"></textarea>
+              <button @click="createPost()" :disabled="post.content === ''" class="button">post</button>
+            </form>
+          </div>
+        </div>
       </div>
-      <div :class="{ 'signup-form': !showLoginForm }" class="col2">
-        <form v-if="showLoginForm" @submit.prevent>
-          <h1>Welcome Back</h1>
-          <div>
-            <label for="email1">Email</label>
-            <input v-model.trim="loginForm.email" type="text" placeholder="you@email.com" id="email1" />
+      <div class="col2">
+        <div v-if="posts.length">
+          <div v-for="post in posts" :key="post.id" class="post">
+            <h5>{{ post.userName }}</h5>
+            <span>{{ post.createdOn | formatDate }}</span>
+            <p>{{ post.content | trimLength }}</p>
+            <ul>
+              <li><a @click="toggleCommentModal(post)">comments {{ post.comments }}</a></li>
+              <li><a @click="likePost(post.id, post.likes)">likes {{ post.likes }}</a></li>
+              <li><a @click="viewPost(post)">view full post</a></li>
+            </ul>
           </div>
-          <div>
-            <label for="password1">Password</label>
-            <input v-model.trim="loginForm.password" type="password" placeholder="******" id="password1" />
-          </div>
-          <button @click="login()" class="button">Log In</button>
-          <div class="extras">
-            <a @click="togglePasswordReset()">Forgot Password</a>
-            <a @click="toggleForm()">Create an Account</a>
-          </div>
-        </form>
-        <form v-else @submit.prevent>
-          <h1>Get Started</h1>
-          <div>
-            <label for="name">Name</label>
-            <input v-model.trim="signupForm.name" type="text" placeholder="Savvy Apps" id="name" />
-          </div>
-          <div>
-            <label for="title">Title</label>
-            <input v-model.trim="signupForm.title" type="text" placeholder="Company" id="title" />
-          </div>
-          <div>
-            <label for="email2">Email</label>
-            <input v-model.trim="signupForm.email" type="text" placeholder="you@email.com" id="email2" />
-          </div>
-          <div>
-            <label for="password2">Password</label>
-            <input v-model.trim="signupForm.password" type="password" placeholder="min 6 characters" id="password2" />
-          </div>
-          <button @click="signup()" class="button">Sign Up</button>
-          <div class="extras">
-            <a @click="toggleForm()">Back to Log In</a>
-          </div>
-        </form>
+        </div>
+        <div v-else>
+          <p class="no-results">There are currently no posts</p>
+        </div>
       </div>
     </section>
+
+    <!-- full post modal -->
+    <transition name="fade">
+      <div v-if="showPostModal" class="p-modal">
+        <div class="p-container">
+          <a @click="closePostModal()" class="close">close</a>
+          <div class="post">
+            <h5>{{ fullPost.userName }}</h5>
+            <span>{{ fullPost.createdOn | formatDate }}</span>
+            <p>{{ fullPost.content }}</p>
+            <ul>
+              <li><a>comments {{ fullPost.comments }}</a></li>
+              <li><a>likes {{ fullPost.likes }}</a></li>
+            </ul>
+          </div>
+          <div v-show="postComments.length" class="comments">
+            <div v-for="comment in postComments" :key="comment.id" class="comment">
+              <p>{{ comment.userName }}</p>
+              <span>{{ comment.createdOn | formatDate }}</span>
+              <p>{{ comment.content }}</p>
+            </div>
+          </div>
+        </div>
+      </div>
+    </transition>
   </div>
 </template>
 
 <script>
-import PasswordReset from '@/components/PasswordReset'
+import { commentsCollection } from '@/firebase'
+import { mapState } from 'vuex'
+import moment from 'moment'
+import CommentModal from '@/components/CommentModal'
+
 export default {
   components: {
-    PasswordReset
+    CommentModal
   },
   data() {
     return {
-      loginForm: {
-        email: '',
-        password: ''
+      post: {
+        content: ''
       },
-      signupForm: {
-        name: '',
-        title: '',
-        email: '',
-        password: ''
-      },
-      showLoginForm: true,
-      showPasswordReset: false
+      showCommentModal: false,
+      selectedPost: {},
+      showPostModal: false,
+      fullPost: {},
+      postComments: []
     }
   },
+  computed: {
+    ...mapState(['userProfile', 'posts'])
+  },
   methods: {
-    toggleForm() {
-      this.showLoginForm = !this.showLoginForm
+    createPost() {
+      this.$store.dispatch('createPost', { content: this.post.content })
+      this.post.content = ''
     },
-    togglePasswordReset() {
-      this.showPasswordReset = !this.showPasswordReset
+    toggleCommentModal(post) {
+      this.showCommentModal = !this.showCommentModal
+
+      // if opening modal set selectedPost, else clear
+      if (this.showCommentModal) {
+        this.selectedPost = post
+      } else {
+        this.selectedPost = {}
+      }
     },
-    login() {
-      this.$store.dispatch('login', {
-        email: this.loginForm.email,
-        password: this.loginForm.password
+    likePost(id, likesCount) {
+      this.$store.dispatch('likePost', { id, likesCount })
+    },
+    async viewPost(post) {
+      const docs = await commentsCollection.where('postId', '==', post.id).get()
+
+      docs.forEach(doc => {
+        let comment = doc.data()
+        comment.id = doc.id
+        this.postComments.push(comment)
       })
+
+      this.fullPost = post
+      this.showPostModal = true
     },
-    signup() {
-      this.$store.dispatch('signup', {
-        email: this.signupForm.email,
-        password: this.signupForm.password,
-        name: this.signupForm.name,
-        title: this.signupForm.title
-      })
+    closePostModal() {
+      this.postComments = []
+      this.showPostModal = false
+    }
+  },
+  filters: {
+    formatDate(val) {
+      if (!val) { return '-' }
+
+      let date = val.toDate()
+      return moment(date).fromNow()
+    },
+    trimLength(val) {
+      if (val.length < 200) { return val }
+      return `${val.substring(0, 200)}...`
     }
   }
 }
 </script>
+
+<style lang="scss" scoped>
+
+</style>

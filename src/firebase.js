@@ -1,6 +1,7 @@
-import firebase from 'firebase/app'
+import firebase from "firebase/app";
 import 'firebase/auth'
 import 'firebase/firestore'
+
 
 // firebase init - add your own config here
 const firebaseConfig = {
@@ -33,3 +34,5 @@ export {
   commentsCollection,
   likesCollection
 }
+const fb = firebase 
+export default fb
